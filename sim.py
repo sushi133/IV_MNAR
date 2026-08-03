@@ -662,7 +662,7 @@ def make_headline_figure(raw: pd.DataFrame, profiles: pd.DataFrame, outpath: str
     ax_b.axvline(TRUE_CACE, color=_PALETTE["black"], ls="--", lw=1.2, zorder=1)
     ax_b.set_xlabel(r"CACE value fixed in the profile")
     ax_b.set_ylabel(r"Profile log-likelihood $-$ maximum")
-    ax_b.set_title(r"(b) Identifiable: sharp peak; nonidentified: flat ridge")
+    ax_b.set_title(r"(b) Identifiable: sharp peak; nonidentifiable: flat ridge")
     ax_b.set_ylim(-16.0, 1.6)
     ax_b.set_xlim(-0.30, 1.0)
     ax_b.set_xticks(np.round(np.arange(-0.3, 1.001, 0.1), 1))
