@@ -596,16 +596,16 @@ _IDENT_LINEWIDTHS = {"1ZD": 2.9, "1UD": 2.3, "1DY": 1.9, "1ZY": 1.5, "1UY": 1.1}
 
 
 def _mech_label(mech: str) -> str:
-    return rf"$1_{{{mech[1:]}}}$"
+    return rf"$1\mathit{{{mech[1:]}}}$"
 
 
 def apply_paper_style() -> None:
     plt.rcParams.update({
         "figure.dpi": 150, "savefig.dpi": 320,
-        "font.family": "serif", "font.serif": ["DejaVu Serif", "Times New Roman", "Times"],
-        "mathtext.fontset": "dejavuserif",
+        "font.family": "sans-serif", "font.sans-serif": ["DejaVu Sans"],
+        "mathtext.fontset": "dejavusans",
         "font.size": 11, "axes.titlesize": 11, "axes.labelsize": 11,
-        "legend.fontsize": 9.5, "xtick.labelsize": 9.5, "ytick.labelsize": 9.5,
+        "legend.fontsize": 9.0, "xtick.labelsize": 9.0, "ytick.labelsize": 9.0,
         "axes.linewidth": 0.8, "axes.spines.top": False, "axes.spines.right": False,
         "axes.grid": True, "grid.color": "#DDDDDD", "grid.linewidth": 0.6,
         "axes.axisbelow": True, "legend.frameon": False, "lines.linewidth": 1.8,
@@ -616,8 +616,8 @@ def make_headline_figure(raw: pd.DataFrame, profiles: pd.DataFrame, outpath: str
     """Headline figure: (a) sampling distributions under identifiable mechanisms;
     (b) population profile likelihoods (sharp peak vs. flat ridge)."""
     apply_paper_style()
-    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(11.0, 4.3),
-                                     gridspec_kw={"width_ratios": [1.0, 1.1]})
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(6.0, 5.5),
+                                     gridspec_kw={"height_ratios": [1.0, 1.15]})
 
     # ----- correctly specified sampling distributions -----
     ypos = np.arange(len(IDENTIFIABLE_DGPS))[::-1]
@@ -672,14 +672,14 @@ def make_headline_figure(raw: pd.DataFrame, profiles: pd.DataFrame, outpath: str
     by_label = dict(zip(labels, handles))
     order = [_mech_label(m) for m in list(IDENTIFIABLE_DGPS) + list(NONIDENTIFIED_DGPS)
              if _mech_label(m) in by_label]
-    leg = ax_b.legend([by_label[l] for l in order], order, ncol=2, fontsize=8.4,
+    leg = ax_b.legend([by_label[l] for l in order], order, ncol=3, fontsize=9.0,
                       loc="lower left", bbox_to_anchor=(0.015, 0.03),
                       columnspacing=1.3, handlelength=2.6, borderaxespad=0.3,
                       frameon=True, facecolor="white", edgecolor="none", framealpha=0.82)
     leg.set_zorder(6)
     leg._legend_box.align = "left"
 
-    fig.tight_layout(w_pad=2.2)
+    fig.tight_layout(h_pad=1.8)
     fig.savefig(outpath, bbox_inches="tight")
     plt.close(fig)
 
@@ -692,7 +692,7 @@ def make_misspecification_figure(summary: pd.DataFrame, outpath: str) -> None:
     cols = [m for m in IDENTIFIABLE_DGPS if m in pivot.columns]
     data = pivot.loc[rows, cols].to_numpy(dtype=float)
 
-    fig, ax = plt.subplots(figsize=(6.6, 5.4))
+    fig, ax = plt.subplots(figsize=(6.0, 4.9))
     finite = np.abs(data[np.isfinite(data)])
     vmax = max(float(np.nanpercentile(finite, 90)) if finite.size else 1.0, 0.30)
     im = ax.imshow(data, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
@@ -708,7 +708,7 @@ def make_misspecification_figure(summary: pd.DataFrame, outpath: str) -> None:
             val = data[i, j]
             txt = _fmt(val)
             shade = 0.0 if not np.isfinite(val) else abs(val) / vmax
-            ax.text(j, i, txt, ha="center", va="center", fontsize=8,
+            ax.text(j, i, txt, ha="center", va="center", fontsize=9,
                     color="white" if shade > 0.55 else "black")
             if rows[i] == cols[j]:
                 ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False,

@@ -357,7 +357,7 @@ def bootstrap(df, X, ms, params, B, seed, maxit, n_jobs):
 # Manuscript outputs: one figure and one small TeX file with the numbers used in the text.
 def mech_tex(s):
     s = s.replace("⊕", r"\oplus ")
-    s = re.sub(r"([12])([A-Z]+)", r"\1\\mathrm{\2}", s)
+    s = re.sub(r"([12])([A-Z]+)", r"\1\\mathit{\2}", s)
     return "$" + s + "$"
 
 
@@ -365,12 +365,14 @@ def mech_tex(s):
 def write_forest(path, ms, point, boot):
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
+    plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["DejaVu Sans"],
+                         "mathtext.fontset": "dejavusans"})
     labels = [mech_tex(m.label) for m in ms]
     lo = np.nanpercentile(boot, 2.5, axis=0) if boot.size else point.copy()
     hi = np.nanpercentile(boot, 97.5, axis=0) if boot.size else point.copy()
     y = np.arange(len(labels))[::-1]
-    fig = plt.figure(figsize=(8.4, max(5.0, 0.39 * len(labels) + 0.8)), dpi=450)
-    gs = GridSpec(1, 2, width_ratios=[5.3, 1.35], wspace=0.02, figure=fig)
+    fig = plt.figure(figsize=(6.0, max(4.6, 0.40 * len(labels) + 0.9)), dpi=450)
+    gs = GridSpec(1, 2, width_ratios=[4.3, 1.7], wspace=0.02, figure=fig)
     ax = fig.add_subplot(gs[0, 0])
     axr = fig.add_subplot(gs[0, 1], sharey=ax)
     for a in (ax, axr):
@@ -382,8 +384,8 @@ def write_forest(path, ms, point, boot):
     else:
         ax.plot(point, y, "o", ms=4.7, color="#173f67", zorder=3)
     ax.axvline(0, color="#777777", lw=0.8, ls=(0, (3, 3)), zorder=1)
-    ax.set_yticks(y); ax.set_yticklabels(labels, fontsize=10)
-    ax.set_xlabel("CACE in weekly earnings (dollars)", fontsize=11)
+    ax.set_yticks(y); ax.set_yticklabels(labels, fontsize=9.5)
+    ax.set_xlabel("CACE in weekly earnings (dollars)", fontsize=10)
     xmin = min(0.0, float(np.nanmin(lo)) - 1.5)
     xmax = max(50.0, float(np.nanmax(hi)) + 1.5)
     ax.set_xlim(xmin, xmax)
@@ -395,10 +397,10 @@ def write_forest(path, ms, point, boot):
     ax.spines["bottom"].set_color("#999999")
     axr.set_xlim(0, 1); axr.set_xticks([]); axr.set_yticks(y); axr.tick_params(left=False, labelleft=False)
     for sp in ("top", "right", "left", "bottom"): axr.spines[sp].set_visible(False)
-    axr.text(0.98, len(labels) - 0.35, "Estimate (95% CI)", ha="right", va="bottom", fontsize=9.2, color="#333333")
+    axr.text(0.98, len(labels) - 0.35, "Estimate (95% CI)", ha="right", va="bottom", fontsize=9, color="#333333")
     for yy, pnt, a, b in zip(y, point, lo, hi):
         txt = f"{pnt:.1f}" if not boot.size else f"{pnt:.1f} ({a:.1f}, {b:.1f})"
-        axr.text(0.98, yy, txt, ha="right", va="center", fontsize=8.7, color="#333333")
+        axr.text(0.98, yy, txt, ha="right", va="center", fontsize=9, color="#333333")
     fig.subplots_adjust(left=0.16, right=0.985, bottom=0.11, top=0.985)
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
