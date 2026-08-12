@@ -12,8 +12,7 @@ IV_MNAR/
 │   │   ├── fig_identification_headline.pdf
 │   │   └── fig_misspecification_heatmap.pdf
 │   └── tables/
-│       ├── tab_identification_diagnostics.tex
-│       └── numbers_for_text.tex
+│       └── tab_identification_diagnostics.tex
 └── njcs_application/
     ├── code/
     │   └── njcs.py
@@ -42,12 +41,11 @@ From the repository root, run:
 python sim.py --n 5000 --reps 1000 --n-jobs 8
 ```
 
-This regenerates the simulation figures and LaTeX tables in `sim_results/`:
+This regenerates the simulation figures and LaTeX table in `sim_results/`:
 
 - `sim_results/figures/fig_identification_headline.pdf`
 - `sim_results/figures/fig_misspecification_heatmap.pdf`
 - `sim_results/tables/tab_identification_diagnostics.tex`
-- `sim_results/tables/numbers_for_text.tex`
 
 ## Reproducing the NJCS empirical illustration
 
@@ -71,6 +69,5 @@ The manuscript uses the following generated files:
 - Numerical study: `sim_results/figures/fig_identification_headline.pdf`
 - Misspecification analysis: `sim_results/figures/fig_misspecification_heatmap.pdf`
 - Identification diagnostics table: `sim_results/tables/tab_identification_diagnostics.tex`
-- Simulation text macros: `sim_results/tables/numbers_for_text.tex`
 - NJCS empirical figure: `njcs_application/output/njcs_cace_forest.png`
 - NJCS text macros: `njcs_application/output/njcs_manuscript_numbers.tex`

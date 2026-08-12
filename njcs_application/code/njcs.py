@@ -406,7 +406,14 @@ def write_forest(path, ms, point, boot):
     plt.close(fig)
 
 
-def write_numbers(path, df):
+def boot_success(boot, ms):
+    """Resamples that produced a finite estimate, by mechanism."""
+    if not boot.size:
+        return {m.label: 0 for m in ms}
+    return {m.label: int(np.isfinite(boot[:, j]).sum()) for j, m in enumerate(ms)}
+    
+
+def write_numbers(path, df, boot=None, ms=None):
     z1 = df.Z.to_numpy() == 1
     d = df.D.to_numpy()
     y = df.Y.to_numpy()
@@ -417,8 +424,12 @@ def write_numbers(path, df):
         "njcsKnownNotEnrollPct": f"{100 * np.sum(z1 & (df.RD.to_numpy() == 1) & (d == 0)) / z1.sum():.1f}\\%",
         "njcsEnrollmentMissingPct": f"{100 * np.sum(z1 & (df.RD.to_numpy() == 0)) / z1.sum():.1f}\\%",
         "njcsOutcomeMissingPct": f"{100 * np.sum(df.RY.to_numpy() == 0) / n:.1f}\\%",
-        "njcsZeroEarningsPct": f"{100 * np.sum((df.RY.to_numpy() == 1) & (y == 0)) / n:.1f}\\%",
+        "njcsZeroEarningsPct": f"{100 * np.sum((df.RY.to_numpy() == 1) & (y == 0)) / np.sum(df.RY.to_numpy() == 1):.1f}\\%",
     }
+    if boot is not None and ms is not None:
+        ok = boot_success(boot, ms)
+        lines["njcsBootB"] = f"{len(boot):,}"
+        lines["njcsMinBootReps"] = f"{min(ok.values()):,}"
     with open(path, "w", encoding="utf-8") as f:
         for k, v in lines.items(): f.write(f"\\newcommand{{\\{k}}}{{{v}}}\n")
 
@@ -430,7 +441,11 @@ def main():
     p.add_argument("--B", type=int, default=500)
     p.add_argument("--seed", type=int, default=20260608)
     p.add_argument("--point-maxit", type=int, default=100)
-    p.add_argument("--boot-maxit", type=int, default=40)
+    p.add_argument("--boot-maxit", type=int, default=100)
+    # Warm-starting each resample at the full-sample fit pulls the bootstrap
+    # distribution toward the point estimate and narrows the intervals. Off by default;
+    # enable only to check that it makes no difference.
+    p.add_argument("--boot-warm-start", action="store_true")
     p.add_argument("--n-jobs", type=int, default=8)
     args = p.parse_args()
 
@@ -440,9 +455,15 @@ def main():
     fits = fit_all(df, X, ms, args.point_maxit)
     params = {k: par for k, (_, par) in fits.items()}
     point = np.array([fits[m.label][0] for m in ms])
-    boot = bootstrap(df, X, ms, params, args.B, args.seed, args.boot_maxit, args.n_jobs)
+    boot = bootstrap(df, X, ms, params if args.boot_warm_start else {},
+                     args.B, args.seed, args.boot_maxit, args.n_jobs)
 
     write_forest(os.path.join(args.out_dir, "njcs_cace_forest.png"), ms, point, boot)
-    write_numbers(os.path.join(args.out_dir, "njcs_manuscript_numbers.tex"), df)
+    ok = boot_success(boot, ms)
+    print(f"bootstrap resamples with a finite estimate (out of {args.B}):")
+    for m in ms:
+        flag = "   <-- check" if ok[m.label] < 0.99 * args.B else ""
+        print(f"  {m.label:12s} {ok[m.label]:5d}{flag}")
+    write_numbers(os.path.join(args.out_dir, "njcs_manuscript_numbers.tex"), df, boot, ms)
 
 if __name__ == "__main__": main()

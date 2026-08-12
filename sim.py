@@ -8,7 +8,6 @@ Outputs:
   figures/fig_identification_headline.pdf    
   figures/fig_misspecification_heatmap.pdf   
   tables/tab_identification_diagnostics.tex  
-  tables/numbers_for_text.tex           
 """
 
 from __future__ import annotations
@@ -57,12 +56,12 @@ TRUE_CACE = Q_TRUE[("c", 1)] - Q_TRUE[("c", 0)]
 TARGET_RESPONSE = 0.65
 
 DIAG_N = 100_000.0
-DIAG_STARTS = 20
+DIAG_STARTS = 100
 DIAG_MAXITER = 2000
 TOP_LOGLIK_TOL = 1e-8
-PROFILE_MIN, PROFILE_MAX = -0.25, 0.95
-PROFILE_GRID = 41
-PROFILE_STARTS = 2
+PROFILE_MIN, PROFILE_MAX = -1.0, 1.0
+PROFILE_GRID = 81
+PROFILE_STARTS = 4
 PROFILE_MAXITER = 1200
 
 # =============================================================================
@@ -316,7 +315,7 @@ _ESTIMATORS = {
 }
 
 # =============================================================================
-# Saturated observed-data likelihood (for the population diagnostics/profiles)
+# Saturated observed-data likelihood (for the no-sampling diagnostics/profiles)
 # =============================================================================
 
 def response_cells(mech: str) -> List[Tuple]:
@@ -528,7 +527,7 @@ def run_monte_carlo(args: argparse.Namespace) -> pd.DataFrame:
 
 
 def summarize_monte_carlo(raw: pd.DataFrame) -> pd.DataFrame:
-    """Mean excess bias relative to the oracle, by (DGP, fitted model)."""
+    """Mean excess bias, estimate minus complete-data estimate, by (DGP, fitted mechanism)."""
     rows = [{"dgp": dgp, "estimator": est,
              "excess_bias_vs_oracle": float(np.nanmean(g["error_vs_oracle"]))}
             for (dgp, est), g in raw.groupby(["dgp", "estimator"], sort=False)]
@@ -548,7 +547,8 @@ def _diag_task(task: Tuple[int, str, int]) -> Dict[str, object]:
     max_ll = max(r["loglik"] for r in starts)
     top = [r["cace"] for r in starts if (max_ll - r["loglik"]) <= TOP_LOGLIK_TOL * DIAG_N]
     return {"mechanism": mech, "identified": mech in IDENTIFIABLE_DGPS,
-            "best_cace": fit["cace"], "cace_range": float(max(top) - min(top))}
+            "cace_lo": float(min(top)), "cace_hi": float(max(top)),
+            "n_starts": len(starts), "n_at_max": len(top)}
 
 
 def run_diagnostics(args: argparse.Namespace) -> pd.DataFrame:
@@ -614,7 +614,8 @@ def apply_paper_style() -> None:
 
 def make_headline_figure(raw: pd.DataFrame, profiles: pd.DataFrame, outpath: str) -> None:
     """Headline figure: (a) sampling distributions under identifiable mechanisms;
-    (b) population profile likelihoods (sharp peak vs. flat ridge)."""
+    (b) profile log-likelihoods from the true observed-data distribution rather than
+    a sample (sharp peak vs. flat ridge)."""
     apply_paper_style()
     fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(6.0, 5.5),
                                      gridspec_kw={"height_ratios": [1.0, 1.15]})
@@ -646,7 +647,7 @@ def make_headline_figure(raw: pd.DataFrame, profiles: pd.DataFrame, outpath: str
     ax_a.set_xticks([0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70])
     ax_a.margins(x=0.0)
 
-    # ----- population profile likelihoods -----
+    # ----- profile log-likelihoods from the true observed-data distribution
     present = set(profiles["mechanism"])
     for m in NONIDENTIFIED_DGPS:
         if m in present:
@@ -664,7 +665,7 @@ def make_headline_figure(raw: pd.DataFrame, profiles: pd.DataFrame, outpath: str
     ax_b.set_ylabel(r"Profile log-likelihood $-$ maximum")
     ax_b.set_title(r"(b) Identifiable: sharp peak; nonidentifiable: flat ridge")
     ax_b.set_ylim(-16.0, 1.6)
-    ax_b.set_xlim(-0.30, 1.0)
+    ax_b.set_xlim(-0.40, 1.0)
     ax_b.set_xticks(np.round(np.arange(-0.3, 1.001, 0.1), 1))
     ax_b.set_yticks([0, -2, -4, -6, -8, -10, -12])
     ax_b.margins(x=0.0)
@@ -714,7 +715,7 @@ def make_misspecification_figure(summary: pd.DataFrame, outpath: str) -> None:
                 ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False,
                                            edgecolor=_PALETTE["black"], lw=1.8))
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label(r"Excess bias $\;\mathbb{E}(\hat\tau-\hat\tau_{\mathrm{oracle}})$")
+    cbar.set_label("Excess bias")
     fig.tight_layout()
     fig.savefig(outpath, bbox_inches="tight")
     plt.close(fig)
@@ -726,11 +727,18 @@ def _fmt(x: float, nd: int = 2) -> str:
     return str(Decimal(repr(float(x))).quantize(Decimal(1).scaleb(-nd), rounding=ROUND_HALF_UP))
 
 
+def _fmt_range(lo: float, hi: float, nd: int = 2) -> str:
+    """Range of CACE estimates over the random starts."""
+    if any(v is None or not math.isfinite(float(v)) for v in (lo, hi)):
+        return "--"
+    return rf"$({_fmt(lo, nd)},\, {_fmt(hi, nd)})$"
+
+
 def write_diagnostics_table(diag: pd.DataFrame, outpath: str) -> None:
-    """Write the diagnostics table: identifiability and the CACE range across maximizers."""
+    """Write the diagnostics table: identifiability and the width of the interval of CACE values."""
     by = {r["mechanism"]: r for _, r in diag.iterrows()}
-    lines = [r"\begin{tabular}{l c r r}", r"\toprule",
-             r"Mechanism & Identifiable & CACE at maximum & CACE range \\", r"\midrule"]
+    lines = [r"\begin{tabular}{l c c}", r"\toprule",
+             r"Mechanism & Identifiable & Range of CACE estimates \\", r"\midrule"]
     wrote_rule = False
     for m in list(IDENTIFIABLE_DGPS) + list(NONIDENTIFIED_DGPS):
         if m not in by:
@@ -740,22 +748,12 @@ def write_diagnostics_table(diag: pd.DataFrame, outpath: str) -> None:
             wrote_rule = True
         r = by[m]
         ident = "Yes" if bool(r["identified"]) else "No"
-        lines.append(f"{_mech_label(m)} & {ident} & {_fmt(r['best_cace'])} & {_fmt(r['cace_range'])} \\\\")
+        lines.append(f"{_mech_label(m)} & {ident} & "
+                     f"{_fmt_range(r['cace_lo'], r['cace_hi'])} \\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     with open(outpath, "w") as f:
         f.write("\n".join(lines) + "\n")
 
-
-def write_text_numbers(diag: pd.DataFrame, outpath: str) -> None:
-    r"""Macros (\TrueCACE, \NonidentRangeLow/High) so the prose tracks the table."""
-    ranges = diag[~diag["identified"]]["cace_range"].to_numpy(dtype=float)
-    lo = float(np.nanmin(ranges)) if ranges.size else float("nan")
-    hi = float(np.nanmax(ranges)) if ranges.size else float("nan")
-    lines = [rf"\newcommand{{\TrueCACE}}{{{_fmt(TRUE_CACE)}}}",
-             rf"\newcommand{{\NonidentRangeLow}}{{{_fmt(lo)}}}",
-             rf"\newcommand{{\NonidentRangeHigh}}{{{_fmt(hi)}}}"]
-    with open(outpath, "w") as f:
-        f.write("\n".join(lines) + "\n")
 
 # =============================================================================
 # Entry point
@@ -787,7 +785,6 @@ def main() -> None:
     make_headline_figure(raw, profiles, os.path.join(fig_dir, "fig_identification_headline.pdf"))
     make_misspecification_figure(summary, os.path.join(fig_dir, "fig_misspecification_heatmap.pdf"))
     write_diagnostics_table(diag, os.path.join(tab_dir, "tab_identification_diagnostics.tex"))
-    write_text_numbers(diag, os.path.join(tab_dir, "numbers_for_text.tex"))
 
 if __name__ == "__main__":
     main()
